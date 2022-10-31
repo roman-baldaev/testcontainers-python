@@ -12,7 +12,9 @@
 #    under the License.
 import os
 
+from testcontainers.core.generic import ADDITIONAL_TRANSIENT_ERRORS
 from testcontainers.core.generic import DbContainer
+from testcontainers.core.waiting_utils import wait_container_is_ready
 
 
 class PostgresContainer(DbContainer):
@@ -48,6 +50,17 @@ class PostgresContainer(DbContainer):
 
         self.with_exposed_ports(self.port_to_expose)
 
+    @wait_container_is_ready(*ADDITIONAL_TRANSIENT_ERRORS)
+    def _connect(self):
+        if self._is_async_driver():
+            from sqlalchemy.ext.asyncio import create_async_engine
+            engine = create_async_engine(self.get_connection_url(), future=True, echo=False, pool_size=20)
+            engine.connect()
+        else:
+            import sqlalchemy
+            engine = sqlalchemy.create_engine(self.get_connection_url())
+            engine.connect()
+
     def _configure(self):
         self.with_env("POSTGRES_USER", self.POSTGRES_USER)
         self.with_env("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD)
@@ -60,3 +73,9 @@ class PostgresContainer(DbContainer):
                                               db_name=self.POSTGRES_DB,
                                               host=host,
                                               port=self.port_to_expose)
+
+    def _is_async_driver(self) -> bool:
+        # asyncpg (aiopg has own engine to work with SQLAlchemy)
+        if self.driver == 'asyncpg':
+            return True
+        return False
