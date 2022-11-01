@@ -53,8 +53,8 @@ class PostgresContainer(DbContainer):
     @wait_container_is_ready(*ADDITIONAL_TRANSIENT_ERRORS)
     def _connect(self):
         if self._is_async_driver():
-            from sqlalchemy.ext.asyncio import create_async_engine
-            engine = create_async_engine(self.get_connection_url(), future=True, echo=False, pool_size=20)
+            import sqlalchemy
+            engine = sqlalchemy.create_engine(self.get_connection_url().replace(self.driver, 'psycopg2'))
             engine.connect()
         else:
             import sqlalchemy
